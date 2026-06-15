@@ -134,8 +134,15 @@ class MainHelper:
         ground_stations = satgen.read_ground_stations_extended(
             output_generated_data_dir + "/" + name + "/ground_stations.txt"
         )
-        if dynamic_state_algorithm == "algorithm_free_one_only_gs_relays" \
-                or dynamic_state_algorithm == "algorithm_free_one_only_over_isls":
+        if dynamic_state_algorithm in [
+                "algorithm_free_one_only_gs_relays",
+                "algorithm_free_one_only_over_isls",
+                "algorithm_gdh_dpq_over_isls",
+                "algorithm_direct_drop_over_isls",
+                "algorithm_dsp_over_isls",
+                "algorithm_ca_dsp_over_isls",
+                "algorithm_dbpr_over_isls",
+                "algorithm_gpsr_over_isls"]:
             gsl_interfaces_per_satellite = 1
         elif dynamic_state_algorithm == "algorithm_paired_many_only_over_isls":
             gsl_interfaces_per_satellite = len(ground_stations)

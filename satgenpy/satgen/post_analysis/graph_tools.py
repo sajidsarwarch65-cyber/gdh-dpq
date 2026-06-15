@@ -128,9 +128,15 @@ def get_path(src, dst, forward_state):
     curr = src
     path = [src]
     while curr != dst:
+        if (curr, dst) not in forward_state:
+            return None
         next_hop = forward_state[(curr, dst)]
+        if next_hop == -1:
+            return None
         path.append(next_hop)
         curr = next_hop
+        if len(path) > 10000:  # loop guard
+            return None
     return path
 
 

@@ -130,6 +130,8 @@ def analyze_rtt(
     list_max_rtt_to_geodesic_slowdown = []
     for src in range(len(ground_stations)):
         for dst in range(src + 1, len(ground_stations)):
+            if len(rtt_list_per_pair[src][dst]) == 0:
+                continue
             min_rtt_ns = np.min(rtt_list_per_pair[src][dst])
             max_rtt_ns = np.max(rtt_list_per_pair[src][dst])
             max_rtt_slowdown = float(max_rtt_ns) / float(min_rtt_ns)
@@ -169,6 +171,8 @@ def analyze_rtt(
         largest_rtt_delta_list = []
         for src in range(len(ground_stations)):
             for dst in range(src + 1, len(ground_stations)):
+                if len(rtt_list_per_pair[src][dst]) == 0:
+                    continue
                 min_rtt_ns = np.min(rtt_list_per_pair[src][dst])
                 max_rtt_ns = np.max(rtt_list_per_pair[src][dst])
                 largest_rtt_delta_list.append((max_rtt_ns - min_rtt_ns, min_rtt_ns, max_rtt_ns, src, dst))

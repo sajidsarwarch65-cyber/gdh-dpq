@@ -139,6 +139,8 @@ def analyze_path(
     list_num_path_changes = []
     for src in range(len(ground_stations)):
         for dst in range(src + 1, len(ground_stations)):
+            if len(hop_count_list_per_pair[src][dst]) == 0:
+                continue
             min_hop_count = np.min(hop_count_list_per_pair[src][dst])
             max_hop_count = np.max(hop_count_list_per_pair[src][dst])
             list_max_hop_count_to_min_hop_count.append(float(max_hop_count) / float(min_hop_count))
@@ -166,6 +168,8 @@ def analyze_path(
         largest_hop_count_delta_list = []
         for src in range(len(ground_stations)):
             for dst in range(src + 1, len(ground_stations)):
+                if len(hop_count_list_per_pair[src][dst]) == 0:
+                    continue
                 min_hop_count = np.min(hop_count_list_per_pair[src][dst])
                 max_hop_count = np.max(hop_count_list_per_pair[src][dst])
                 largest_hop_count_delta_list.append((max_hop_count - min_hop_count, min_hop_count, max_hop_count,

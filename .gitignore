@@ -1,3 +1,18 @@
-.idea
+# Generated data - regenerate by running main_starlink_550.py
+paper/satellite_networks_state/gen_data/
+
+# ns-3 simulation results - regenerate by running ns-3
+paper/ns3_experiments/starlink_loaded/runs/
+
+# OpenFlow library - build from source (see README Step 2)
+openflow_src/
+openflow.tar.gz
+
+# Build artifacts
+ns3-sat-sim/simulator/build/
 *.pyc
-dev_testing/
+__pycache__/
+*.npy
+*.log
+*.o
+*.a
