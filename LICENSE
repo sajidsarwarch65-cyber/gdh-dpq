@@ -2,3 +2,9 @@ ns3-sat-sim/ is licensed under the GNU GPL version 2 license.
 satgenpy/ is licensed under the MIT license.
 satviz/ is license under the MIT license.
 paper/ is licensed under the MIT license.
+
+hypatia_ai/ is licensed under the MIT license (Muhammad Sajid Sarwar, 2026).
+patches/ follows the license of the files it patches.
+Files added under ns3-sat-sim/, including
+src/openflow/model/gdh-dpq-controller.{h,cc}, are derivative works of
+ns3-sat-sim and are therefore GPL version 2.

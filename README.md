@@ -250,8 +250,15 @@ shortest-path passes are independent and parallelizable.
 ## License and acknowledgements
 
 This work builds on [Hypatia](https://github.com/snkas/hypatia) (ETH Zurich),
-distributed under the MIT License; see `LICENSE`. Population data is from the
-EU Copernicus GHS-POP R2023A product.
+which is distributed under mixed terms: `ns3-sat-sim/` is GPL version 2, while
+`satgenpy/`, `satviz/` and `paper/` are MIT. See `LICENSE` and the
+per-directory license files.
+
+Code added here follows the license of the directory it sits in. The OpenFlow
+controller under `ns3-sat-sim/` is therefore GPL version 2; the standalone
+solver in `hypatia_ai/` is MIT.
+
+Population data is from the EU Copernicus GHS-POP R2023A product.
 
 ## Contact
 
