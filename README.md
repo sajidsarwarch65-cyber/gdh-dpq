@@ -102,6 +102,40 @@ process and clipped to a per-satellite demand range.
 
 ---
 
+## Data paths
+
+Scripts in `hypatia_ai/` carry absolute paths under `/home/msarwa02` and must be
+edited before they will run anywhere else. `grep -rn "/home/msarwa02" hypatia_ai/`
+lists every line; they fall into four groups.
+
+**Input data.** The files the solver reads:
+
+| Path | Contents |
+|---|---|
+| `FOLDER = r"/home/msarwa02"` | directory holding the GHS-POP raster, the Starlink TLE/CSV file, and the gateway KML |
+| `standalone_mega_gw_km.npy` | gateway positions, ECEF km, shape `(99, 3)` |
+| `ground_zone_metadata.csv` | per-zone population metadata used by the traffic generator |
+
+**Hypatia run directory.** `GEN` points at a generated forwarding-state
+directory of the form
+`hypatia/paper/satellite_networks_state/gen_data/starlink_550_isls_plus_grid_ground_stations_top_100_algorithm_gdh_dpq_over_isls`,
+produced by `main_starlink_550.py`. The scripts that bridge the standalone
+solver and the Hypatia topology read it.
+
+**Module path.** Several short drivers do
+`sys.path.insert(0, '"'"'/home/msarwa02/hypatia_ai'"'"')` rather than relying on
+`PYTHONPATH`. Either edit the literal or export
+`PYTHONPATH=$PWD/hypatia_ai` and drop the insert.
+
+**Results.** Written to the same home directory: `results_log.txt`,
+`hypatia_conv_scale*.npy`, `hypatia_v6e_ablation.npy`, `dual_metrics_3scale.npy`,
+the per-sweep `*_results.txt` files, and the trained checkpoint
+`policy_temporal.pt`. Sweep and plotting scripts read these back by the same
+absolute path, so a change to where results are written has to be made in both
+the producing and the consuming script.
+
+---
+
 ## Reproduction
 
 ### Standalone solver (no ns-3 build required)
