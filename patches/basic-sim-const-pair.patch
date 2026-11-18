@@ -1,0 +1,13 @@
+diff --git a/model/core/basic-simulation.cc b/model/core/basic-simulation.cc
+index 766da21..96453a2 100644
+--- a/model/core/basic-simulation.cc
++++ b/model/core/basic-simulation.cc
+@@ -246,7 +246,7 @@ void BasicSimulation::ShowSimulationProgress() {
+ }
+ 
+ void BasicSimulation::ConfirmAllConfigParamKeysRequested() {
+-    for (const std::pair<std::string, std::string>& key_val : m_config) {
++    for (const std::pair<const std::string, std::string>& key_val : m_config) {
+         if (m_configRequestedKeys.find(key_val.first) == m_configRequestedKeys.end()) {
+             throw std::runtime_error(format_string("Config key \'%s\' has not been requested (unused config keys are not allowed)", key_val.first.c_str()));
+         }
