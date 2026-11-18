@@ -16,3 +16,7 @@ __pycache__/
 *.log
 *.o
 *.a
+*.bak*
+*.npy
+*.pt
+hypatia_ai/__pycache__/

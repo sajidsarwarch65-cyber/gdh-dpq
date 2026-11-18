@@ -1,32 +1,35 @@
+import os
 
 import math, heapq, numpy as np
 from collections import defaultdict
 
-def _make_rho(Ns, seed=7):
+def _make_rho(Ns, seed=7, scale=1.0):
     # Population-based traffic demand (GHS 2020 raster)
     import os
     _rho_file = '/home/msarwa02/rho_starlink_s1.npy'
     if os.path.exists(_rho_file):
         rho = np.load(_rho_file)
         if len(rho) == Ns:
-            return rho
+            return rho * scale
     rng = np.random.default_rng(seed)
     s = 0.9
     mu = math.log(1.0) - 0.5*s*s
     rho_raw = np.clip(rng.lognormal(mu, s, size=Ns), 0.1, 8.0)
     target_mean = 0.85 * CGW_DEFAULT / (Ns / 100.0)
-    return rho_raw * (target_mean / rho_raw.mean())
+    return rho_raw * scale * (target_mean / rho_raw.mean())
 
 # Parameters matching v6b standalone code
 ALPHA1=1.0; ALPHA2=0.02; ALPHA3=0.02; ALPHA4=0.01
 C_LIGHT=299792458.0
 D_TX_ISL=0.0002; D_PROC_ISL=0.0001
 D_TX_GSL=0.0005; D_PROC_GSL=0.0002
-CISL=8.0; CGW_DEFAULT=40.0
+CISL=float(os.environ.get("GDHDPQ_CISL","8.0")); CGW_DEFAULT=float(os.environ.get("GDHDPQ_CG","40.0"))
+USE_LAMBDA=int(os.environ.get("GDHDPQ_USE_LAMBDA","1"))
+USE_NU=int(os.environ.get("GDHDPQ_USE_NU","1"))
 QUEUE_SCALE=0.002; QUEUE_MAX=0.05; QUEUE_EPS=1e-3
 THO_S=60.0; DHO=0.02
 # Dual decomposition -- matching v6b
-DUAL_ITERS_S2=100; DUAL_ITERS_S3=50
+DUAL_ITERS_S2=200; DUAL_ITERS_S3=200
 LAM_MAX=100.0; NU_MAX=100.0
 ETA_LOAD=0.25
 POLYAK_ALPHA=0.5
@@ -40,6 +43,11 @@ L_MAX_LIFE=600.0; L_MIN=30.0
 # Epsilon feasibility
 EPS_MIN_FRAC=0.02; EPS_MAX_FRAC=0.12
 ETA_LOAD=0.3; TIE_EPS=1e-12
+
+def _eps_feas_thresholds(util, Cg, Cisl):
+    frac = EPS_MIN_FRAC + (EPS_MAX_FRAC - EPS_MIN_FRAC) * float(
+        min(max(util - 1.0, 0.0), 1.0))
+    return frac * float(np.mean(Cg)), frac * float(Cisl)
 
 def _gsl_capacity_from_elevation(dist_m, sat_alt_m=550000.0,
                                   elev_min_deg=25.0, c_max=1.0):
@@ -221,11 +229,14 @@ def calculate_fstate_gdh_dpq(
         num_isls_per_sat,gid_to_sat_gsl_if_idx,
         ground_station_satellites_in_range_candidates,
         sat_neighbor_to_if,prev_fstate,enable_verbose_logs,
-        gdhdpq_state=None):
+        gdhdpq_state=None,
+        external_lambda=None,
+        scale=1.0,
+        rho_override=None):
     Ns=num_satellites; Ng=num_ground_stations
     sat_graph=sat_net_graph_only_satellites_with_isls
     vis_list=ground_station_satellites_in_range_candidates
-    rho=_make_rho(Ns)
+    rho=_make_rho(Ns, scale=scale) if rho_override is None else np.asarray(rho_override, dtype=float)
     Cg=np.full(Ng,CGW_DEFAULT,dtype=float)
 
     # Precompute sat->gws lookup (KEY fix for performance)
@@ -268,34 +279,55 @@ def calculate_fstate_gdh_dpq(
         if c["feas"]==b["feas"] and c["mo"]<b["mo"]: return c
         return b
 
+    _util = float(np.sum(rho)) / max(float(np.sum(Cg)), 1e-9)
+    _eps_gw, _eps_isl = _eps_feas_thresholds(_util, Cg, CISL)
     # Stage-2: lambda only (Polyak + stagnation, v6b)
+    # GUARD: skip Stage-2 entirely when an external lambda is injected
+    # (warm-start / amortization), since best2 is only consumed when
+    # external_lambda is None (see lam3 assignment below).
     best2=None; qz=np.zeros(Ng); qiz=defaultdict(float)
     step_scale2=1.0; stag2=0
-    for it in range(DUAL_ITERS_S2):
-        dec,gw_load=route_all(lam,nu,qz,qiz)
-        over=np.maximum(gw_load-Cg,0.0)
-        mo=float(np.max(over)); feas=mo<=1e-9
-        prev_mo=best2["mo"] if best2 else math.inf
-        best2=best_cand({"lam":lam.copy(),"nu":dict(nu),"dec":dec,
-                         "gw":gw_load.copy(),"feas":feas,"mo":mo},best2)
-        if feas: break
-        if best2["mo"]<prev_mo-1e-9: stag2=0
-        else: stag2+=1
-        if stag2>=STAGNATION_K: step_scale2*=0.5; stag2=0
-        tv=float(np.sum(over))
-        gs=float(np.sum(gw_load**2))+1e-12
-        step=float(np.clip(step_scale2*POLYAK_ALPHA*tv/gs,STEP_FLOOR,STEP_CEIL))
-        lam=np.clip(lam+step*over,0.0,LAM_MAX)
+    if external_lambda is None and USE_LAMBDA:
+        for it in range(DUAL_ITERS_S2):
+            dec,gw_load=route_all(lam,nu,qz,qiz)
+            over=np.maximum(gw_load-Cg,0.0)
+            mo=float(np.max(over)); feas=mo<=_eps_gw
+            prev_mo=best2["mo"] if best2 else math.inf
+            best2=best_cand({"lam":lam.copy(),"nu":dict(nu),"dec":dec,
+                             "gw":gw_load.copy(),"feas":feas,"mo":mo},best2)
+            if feas: break
+            if best2["mo"]<prev_mo-1e-9: stag2=0
+            else: stag2+=1
+            if stag2>=STAGNATION_K: step_scale2*=0.5; stag2=0
+            tv=float(np.sum(over))
+            gs=float(np.sum(gw_load**2))+1e-12
+            step=float(np.clip(step_scale2*POLYAK_ALPHA*tv/gs,STEP_FLOOR,STEP_CEIL))
+            lam=np.clip(lam+step*over,0.0,LAM_MAX)
 
     # Stage-3: lambda+nu+queues (Polyak + stagnation, v6b)
-    lam3=best2["lam"].copy(); nu3=defaultdict(float); best3=None
+    # RL HOOK: if external_lambda provided, use it; else use Stage 2 result
+    if external_lambda is not None:
+        lam3 = np.clip(external_lambda, 0.0, LAM_MAX)
+    elif best2 is not None:
+        lam3 = best2["lam"].copy()
+    else:
+        lam3 = np.zeros(Ng)   # lambda disabled (ablation): no gateway pricing
+    # WARM-START nu: seed Stage-3 ISL prices from previous timestep's
+    # converged nu (carried in gdhdpq_state -> variable `nu`) instead of zero.
+    # At high load the ISL constraint binds; seeding nu avoids re-pricing
+    # every link from scratch -> far fewer Stage-3 iterations.
+    nu3 = defaultdict(float, nu); best3 = None
     step_scale3=1.0; stag3=0
-    for it in range(DUAL_ITERS_S3):
+    # When lambda is injected (warm-start / learned predictor), it is frozen
+    # and Stage-3 cannot refine it -- so iterating the full budget is wasted.
+    # A few passes suffice to settle queues (qg, qi) and ISL prices (nu).
+    _s3_iters = 5 if external_lambda is not None else DUAL_ITERS_S3
+    for it in range(_s3_iters):
         qg=np.array([_qd(p_gw[g],Cg[g]) for g in range(Ng)])
         qi={e:_qd(p_isl[e],isl_cap.get(e,CISL)) for e in p_isl if p_isl[e]>0}
         dec,gw_load=route_all(lam3,nu3,qg,qi)
         over=np.maximum(gw_load-Cg,0.0)
-        mo=float(np.max(over)); feas=mo<=1e-9
+        mo=float(np.max(over)); feas=mo<=_eps_gw
         prev_mo=best3["mo"] if best3 else math.inf
         best3=best_cand({"lam":lam3.copy(),"nu":dict(nu3),"dec":dec,
                          "gw":gw_load.copy(),"feas":feas,"mo":mo},best3)
@@ -306,7 +338,9 @@ def calculate_fstate_gdh_dpq(
         gv=float(np.sum(over))
         ggs=float(np.sum(gw_load**2))+1e-12
         sg=float(np.clip(step_scale3*POLYAK_ALPHA*gv/ggs,STEP_FLOOR,STEP_CEIL))
-        lam3=np.clip(lam3+sg*over,0.0,LAM_MAX)
+        if external_lambda is None and USE_LAMBDA:
+            lam3 = np.clip(lam3 + sg*over, 0.0, LAM_MAX)
+        # else: external lambda is fixed, don't update it
         isl_load_approx=defaultdict(float)
         for s,(gid,nh,Lp,K) in dec.items():
             if nh>=0 and nh!=s:
@@ -320,7 +354,8 @@ def calculate_fstate_gdh_dpq(
             igs=sum(float(isl_load_approx.get(e,0.))**2 for e in iod)+1e-12
             si=float(np.clip(step_scale3*POLYAK_ALPHA*iv/igs,STEP_FLOOR,STEP_CEIL))
             for e,ov in iod.items():
-                nu3[e]=float(np.clip(float(nu3.get(e,0.))+si*ov,0.,NU_MAX))
+                if USE_NU:
+                    nu3[e]=float(np.clip(float(nu3.get(e,0.))+si*ov,0.,NU_MAX))
         p_gw=(1-ETA_LOAD)*p_gw+ETA_LOAD*gw_load
         for e,l in isl_load_approx.items():
             p_isl[e]=(1-ETA_LOAD)*float(p_isl.get(e,0.))+ETA_LOAD*float(l)
@@ -452,7 +487,11 @@ def calculate_fstate_gdh_dpq(
         for s in range(Ns):
             for gid in range(Ng):
                 dst=Ns+gid
-                nh_sat = next_hop_to_gw.get((s,gid), -1)
+                # Use GDH-DPQ dual decision for assigned gateway
+                if s in decisions and decisions[s][0]==gid:
+                    nh_sat = decisions[s][1]  # next hop from dual decomposition
+                else:
+                    nh_sat = next_hop_to_gw.get((s,gid), -1)
                 if nh_sat == s:
                     # exit satellite
                     nhd=(dst,num_isls_per_sat[s]+gid_to_sat_gsl_if_idx[gid],0)
@@ -482,12 +521,39 @@ def calculate_fstate_gdh_dpq(
                     f.write("%d,%d,%d,%d,%d\n"%(sgs,dgs,nhd[0],nhd[1],nhd[2]))
                 fstate[(sgs,dgs)]=nhd
 
+    # Save decisions for GNN training
+    import os as _os
+    _dec_dir = "/home/msarwa02/results/gnn_decisions"
+    _os.makedirs(_dec_dir, exist_ok=True)
+    _dec_arr = np.array([[s, decisions[s][0], decisions[s][1], decisions[s][3]]
+                         for s in sorted(decisions.keys())], dtype=np.int32)
+    np.save(f"{_dec_dir}/dec_{time_since_epoch_ns}.npy", _dec_arr)
+    # Save lambda (dual prices) for GNN-lambda predictor
+    _lam_arr = np.array(best3["lam"], dtype=np.float32)
+    np.save(f"{_dec_dir}/lam_{time_since_epoch_ns}.npy", _lam_arr)
+    # --- save nu (ISL prices) as a dense vector over a STABLE edge ordering ---
+    # Edge order = sorted (min,max) tuples of all ISL edges in the sat graph.
+    # This ordering is fixed across timesteps (topology pairing is static),
+    # so nu_<t>.npy vectors are directly comparable for ML.
+    _edges = sorted((min(u,v),max(u,v)) for u,v in sat_graph.edges())
+    _edge_index = {e:i for i,e in enumerate(_edges)}
+    _nu_dense = np.zeros(len(_edges), dtype=np.float32)
+    for e,val in best3["nu"].items():
+        _ek=(min(e[0],e[1]),max(e[0],e[1]))
+        if _ek in _edge_index:
+            _nu_dense[_edge_index[_ek]] = float(val)
+    np.save(f"{_dec_dir}/nu_{time_since_epoch_ns}.npy", _nu_dense)
+    # save the edge list ONCE (same every timestep) for feature building
+    import os as _os2
+    _edgemap_path = f"{_dec_dir}/edge_index.npy"
+    if not _os2.path.exists(_edgemap_path):
+        np.save(_edgemap_path, np.array(_edges, dtype=np.int32))
     if enable_verbose_logs:
         nu_nz=sum(1 for v in best3["nu"].values() if abs(v)>1e-9)
         rt=len(decisions); U=sum(rho[s]*decisions[s][3] for s in decisions)
         print("  > Writing GDH-DPQ forwarding state to: "+fname)
-        print("  > GDH-DPQ: feas=%-5s  maxGW_over=%.4f  routed=%d/%d  U_ISL=%.2f  nu_nz=%d"
-              %(best3["feas"],best3["mo"],rt,Ns,U,nu_nz))
+        print("  > GDH-DPQ: feas=%-5s  maxGW_over=%.4f  maxGW_load=%.4f  routed=%d/%d  U_ISL=%.2f  nu_nz=%d"
+              %(best3["feas"],best3["mo"],float(np.max(best3["gw"])),rt,Ns,U,nu_nz))
 
     return fstate,dict(lam=best3["lam"].copy(),nu=dict(best3["nu"]),
                        gw_load=best3["gw"].copy(),isl_load=dict(p_isl),

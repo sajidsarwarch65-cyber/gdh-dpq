@@ -138,6 +138,7 @@ class MainHelper:
                 "algorithm_free_one_only_gs_relays",
                 "algorithm_free_one_only_over_isls",
                 "algorithm_gdh_dpq_over_isls",
+                "algorithm_gdh_rl_over_isls",
                 "algorithm_direct_drop_over_isls",
                 "algorithm_dsp_over_isls",
                 "algorithm_ca_dsp_over_isls",

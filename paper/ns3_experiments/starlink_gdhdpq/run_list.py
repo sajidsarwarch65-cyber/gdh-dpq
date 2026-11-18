@@ -1,5 +1,5 @@
 dynamic_state_update_interval_ms = 1000
-simulation_end_time_s = 200
+simulation_end_time_s = 6
 isl_utilization_tracking_interval_ns = 1 * 1000 * 1000 * 1000
 
 dynamic_state_update_interval_ns = dynamic_state_update_interval_ms * 1000 * 1000
@@ -16,6 +16,9 @@ chosen_pairs = [
     ("starlink_gdhdpq",     Ns+0,  Ns+27, "TcpNewReno", "gdh_dpq"),    # Tokyo->London
     ("starlink_gdhdpq",     Ns+0,  Ns+24, "TcpNewReno", "gdh_dpq"),    # Tokyo->Paris
     ("starlink_gdhdpq",     Ns+1,  Ns+32, "TcpNewReno", "gdh_dpq"),    # Delhi->NY
+    ("starlink_gdhrl",      Ns+0,  Ns+27, "TcpNewReno", "gdh_rl"),     # Tokyo->London (RL)
+    ("starlink_gdhrl",      Ns+0,  Ns+24, "TcpNewReno", "gdh_rl"),     # Tokyo->Paris  (RL)
+    ("starlink_gdhrl",      Ns+1,  Ns+32, "TcpNewReno", "gdh_rl"),     # Delhi->NY     (RL)
     ("starlink_cadsp",      Ns+0,  Ns+27, "TcpNewReno", "ca_dsp"),     # Tokyo->London
     ("starlink_dsp",        Ns+0,  Ns+27, "TcpNewReno", "dsp"),        # Tokyo->London
     ("starlink_gpsr",       Ns+0,  Ns+27, "TcpNewReno", "gpsr"),       # Tokyo->London

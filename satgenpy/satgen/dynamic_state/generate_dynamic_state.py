@@ -28,6 +28,8 @@ import numpy as np
 from .algorithm_free_one_only_gs_relays import algorithm_free_one_only_gs_relays
 from .algorithm_free_one_only_over_isls import algorithm_free_one_only_over_isls
 from .algorithm_gdh_dpq_over_isls import algorithm_gdh_dpq_over_isls
+from .algorithm_gdh_rl_over_isls import algorithm_gdh_rl_over_isls
+from .algorithm_gdh_ai_over_isls import algorithm_gdh_ai_over_isls
 from .algorithm_baselines_over_isls import algorithm_baselines_over_isls
 from .algorithm_paired_many_only_over_isls import algorithm_paired_many_only_over_isls
 from .algorithm_free_gs_one_sat_many_only_over_isls import algorithm_free_gs_one_sat_many_only_over_isls
@@ -239,6 +241,36 @@ def generate_dynamic_state_at(
             enable_verbose_logs
         )
 
+    elif dynamic_state_algorithm == "algorithm_gdh_ai_over_isls":
+        return algorithm_gdh_ai_over_isls(
+            output_dynamic_state_dir,
+            time_since_epoch_ns,
+            satellites,
+            ground_stations,
+            sat_net_graph_only_satellites_with_isls,
+            ground_station_satellites_in_range,
+            num_isls_per_sat,
+            sat_neighbor_to_if,
+            list_gsl_interfaces_info,
+            prev_output,
+            enable_verbose_logs,
+            epoch,
+            time
+        )
+    elif dynamic_state_algorithm == "algorithm_gdh_rl_over_isls":
+        return algorithm_gdh_rl_over_isls(
+            output_dynamic_state_dir,
+            time_since_epoch_ns,
+            satellites,
+            ground_stations,
+            sat_net_graph_only_satellites_with_isls,
+            ground_station_satellites_in_range,
+            num_isls_per_sat,
+            sat_neighbor_to_if,
+            list_gsl_interfaces_info,
+            prev_output,
+            enable_verbose_logs
+        )
     elif dynamic_state_algorithm == "algorithm_gdh_dpq_over_isls":
         return algorithm_gdh_dpq_over_isls(
             output_dynamic_state_dir,
