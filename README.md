@@ -74,7 +74,14 @@ hypatia_ai/
     train_MCpath*.py               training drivers
     temporal_*.py                  cross-epoch temporal formulation
     *_sweep.py                     capacity / radius / staleness / shell sweeps
+    notebooks/
+        walker_dropHop_multicomm_v6e.ipynb   v6e benchmark as run: all
+                                             schemes and ablations on the
+                                             1,200-satellite analytic Walker
 ```
+
+The notebook is the record of the benchmark as it was run, with its console
+output retained. `standalone_v6e.py` is the same solver as a script.
 
 ---
 
